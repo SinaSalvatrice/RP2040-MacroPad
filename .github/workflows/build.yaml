@@ -1,0 +1,59 @@
+name: Build QMK Firmware
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install QMK CLI
+        run: pip3 install qmk==1.2.0
+
+      - name: Cache QMK firmware
+        uses: actions/cache@v4
+        with:
+          path: ~/qmk_firmware
+          key: qmk-firmware-${{ runner.os }}-${{ hashFiles('qmk/**') }}
+          restore-keys: |
+            qmk-firmware-${{ runner.os }}-
+
+      - name: Setup QMK firmware
+        run: qmk setup --yes
+
+      - name: Copy keyboard files into QMK
+        run: cp -r qmk/adafruit ~/qmk_firmware/keyboards/
+
+      - name: Build shigure keymap
+        run: qmk compile -kb adafruit/macropad -km shigure
+
+      - name: Build shigure_vert keymap
+        run: qmk compile -kb adafruit/macropad -km shigure_vert
+
+      - name: Build default keymap
+        run: qmk compile -kb adafruit/macropad -km default
+
+      - name: Build via keymap
+        run: qmk compile -kb adafruit/macropad -km via
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: |
+            $HOME/qmk_firmware/.build/*.uf2
+            $HOME/qmk_firmware/.build/*.bin
+          if-no-files-found: warn
